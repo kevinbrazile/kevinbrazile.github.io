@@ -1,51 +1,80 @@
-// Canvas setup
-const threejsCanvas = document.querySelector('#threejs-canvas')
-let width = threejsCanvas.offsetWidth
-let height = threejsCanvas.offsetHeight
+import * as THREE from './three.module.js';
+import {
+    OrbitControls
+} from './OrbitControls.js';
+import {
+    GLTFLoader
+} from './GLTFLoader.js';
+import {
+    RGBELoader
+} from './RGBELoader.js';
 
-//scene and camera setup
-const scene = new THREE.Scene()
-const camera = new THREE.PerspectiveCamera(70, width / height, 1, 1000)
-camera.position.set(10, 10, 10)
-camera.lookAt(0, 0, 0)
+let camera, scene, renderer;
 
-//renderer setup
-const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-})
-renderer.setSize(width, height)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-threejsCanvas.appendChild(renderer.domElement)
+init();
+render();
 
-//let's add a 3D box
-const geometry = new THREE.BoxGeometry(5, 5, 5)
-const material = new THREE.MeshBasicMaterial({ color: 0x00ffff })
-const box = new THREE.Mesh(geometry, material)
-scene.add(box)
+function init() {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.25, 20);
+    camera.position.set(20, 7, 2.7);
+    scene = new THREE.Scene();
+    new RGBELoader()
+        .load('environment.hdr', function(texture) {
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            scene.background = texture;
+            scene.environment = texture;
+            render();
 
-//update
-update()
+            // model
+            const loader = new GLTFLoader();
+            loader.load('myworld.gltf', function(gltf) {
+                scene.add(gltf.scene);
+                render();
+            });
+        });
 
+    renderer = new THREE.WebGLRenderer({
+        antialias: true
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
 
-//resize check
-window.addEventListener('resize', onResize)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.addEventListener('change', render); // use if there is no animation loop
+    //controls.enableDamping = true;   //damping 
+    //controls.dampingFactor = 0.1;   //damping inertia
+    controls.minDistance = 12;
+    controls.maxDistance = 16;
+    controls.target.set(0, 0, -0.2);
+    controls.maxPolarAngle = 1.3;
+    controls.minPolarAngle = 1.1;
 
-function update() {
-    box.rotation.x += 0.05
-    box.rotation.y += 0.01
-    renderer.render(scene, camera)
-    window.requestAnimationFrame(update)
+    controls.keys = {
+        LEFT: 'ArrowLeft', //left arrow
+        UP: 'ArrowUp', // up arrow
+        RIGHT: 'ArrowRight', // right arrow
+        BOTTOM: 'ArrowDown' // down arrow
+    }
+
+    controls.update();
+    window.addEventListener('resize', onWindowResize);
+
 }
 
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    render();
+}
 
-function onResize() {
-    width = threejsCanvas.offsetWidth
-    height = threejsCanvas.offsetHeight
-
-    renderer.setSize(width, height)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-    camera.aspect = width / height
-    camera.updateProjectionMatrix()
+//
+function render() {
+    renderer.render(scene, camera);
 }
